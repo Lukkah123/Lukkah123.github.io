@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SmartHouse Application </title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="navbar">
+    <div class="navbar__container">
+        <a href="/" id="navbar__logo"> SMART HOUSE </a>
+    </div>
+</div>
+
+
+<div class="container">
+    <div class="row">
+        <div class="col">
+            <h2 class="mt-5">Turn ON/OFF the lamp</h2>
+            <div class="ml-2">
+                <div class="form-group mt-3">
+                    <label class="toggle">
+                        <input type="checkbox" onclick="changeDevice('Kitchen Lamp', 'lamp')" id="checkBoxKitchenLamp">
+                        <span class="ball"></span>
+                    </label>
+                    <p>Kitchen Lamp</p><input type="checkbox" data-toggle="switch"/>
+                    <label class="toggle">
+                        <input type="checkbox" onclick="changeDevice('Bathroom Lamp', 'lamp')"
+                               id="checkboxBathroomLamp">
+                        <span class="ball"></span>
+                    </label>
+                    <p>Bathroom Lamp</p><input type="checkbox" data-toggle="switch"/>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            <h2 class="mt-5">Open/Close Curtains</h2>
+            <div class="ml-2">
+                <div class="form-group mt-3">
+                    <label class="toggle">
+                        <input type="checkbox" onclick="changeDevice('Livingroom Curtain', 'curtain')"
+                               id="checkboxCurtain">
+                        <span class="ball"></span>
+                    </label>
+                    <span class="ml-2">Curtains <input type="checkbox"
+                                                       data-toggle="switch"/></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            <h2 class="mt-5">Temperature</h2>
+            <div class="ml-2">
+                <div class="form-group mt-3">
+                    <p id="temp"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            <h2 class="mt-5">Fan</h2>
+            <div class="ml-2">
+                <div class="form-group mt-3">
+                    <input type="range" min="0" max="3" class="slider" id="fanSlider"
+                           onclick="changeDevice('Bedroom Fan', 'fan')">
+                    <p id="fanSpeed"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+<script>
+
+let devices = [];
+
+const socket = new WebSocket('ws://ro01.beginit.se:1337/websocket');
+socket.onopen = function (event) {
+    socket.send("getDevices")
+    socket.send("changeDeviceStatus={'_id':'Bedroom Fan', 'speed':'2'}")
+};
+
+socket.onmessage = function (event) {
+    const res = event.data.split("=");
+    console.log(res[1])
+    if (res[0] === "getDevices") {
+        getDevices(res) // Inserts all devices into devices Array
+    } else if (res[0] === "changeDeviceStatus") {
+        onBroadcast(res) // If a device change is broadcasted, then update UI and that device in devices Array
+    }
+}
+
+function getDevices(res) {
+    let i;
+    var json = JSON.parse(res[1])
+    for (i in json.lampList) {
+        devices.push(json.lampList[i])
+    }
+    for (i in json.fanList) {
+        devices.push(json.fanList[i])
+    }
+    for (i in json.curtainList) {
+        devices.push(json.curtainList[i])
+    }
+    for (i in json.temperatureSensorList) {
+        devices.push(json.temperatureSensorList[i])
+    }
+    for (let i = 0; i < devices.length; i++) {
+        let deviceName = devices[i].deviceID
+        if (deviceName === "Kitchen Lamp") {
+            if (devices[i].on === true)
+                document.getElementById("checkBoxKitchenLamp").checked = true
+            else
+                document.getElementById("checkBoxKitchenLamp").checked = false
+        }
+        if (deviceName === "Bathroom Lamp") {
+            if (devices[i].on === true)
+                document.getElementById("checkboxBathroomLamp").checked = true
+            else
+                document.getElementById("checkboxBathroomLamp").checked = false
+        }
+        if (deviceName === "Livingroom Curtain") {
+            if (devices[i].open === true)
+                document.getElementById("checkboxCurtain").checked = true
+            else
+                document.getElementById("checkboxCurtain").checked = false
+        }
+        if (deviceName === "Livingroom Thermometer") {
+            document.getElementById("temp").innerText = devices[i].temperature
+        }
+        if (deviceName === "Bedroom Fan") {
+            document.getElementById("fanSpeed").innerText = devices[i].speed
+        }
+    }
+}
+
+function onBroadcast(res) {
+    let json = JSON.parse(res[1])
+    if (json.operation === "success") {
+        // Operation succeeded
+        let _id = json._id
+        let device = json.device
+        let option = json.option
+        if (_id === "Kitchen Lamp") {
+            toggleLamp("Kitchen Lamp", option)
+        }
+        if (_id === "Bathroom Lamp") {
+            toggleLamp("Bathroom Lamp", option)
+        }
+        if (_id === "Livingroom Curtain") {
+            toggleCurtain("Livingroom Curtain", option)
+        }
+        if (_id === "Bedroom Fan") {
+            toggleFan("Bedroom Fan", option)
+        }
+    } else {
+        // Operation Failed
+        let reason = json.reason
+        //console.log(reason)
+    }
+}
+
+function toggleLamp(deviceID, option) {
+    if (deviceID === "Kitchen Lamp") {
+        if (option.toString() === "true") {
+            document.getElementById("checkBoxKitchenLamp").checked = true
+        } else {
+            document.getElementById("checkBoxKitchenLamp").checked = false
+        }
+    }
+    if (deviceID === "Bathroom Lamp") {
+        if (option.toString() === "true") {
+            document.getElementById("checkboxBathroomLamp").checked = true
+        } else {
+            document.getElementById("checkboxBathroomLamp").checked = false
+        }
+    }
+}
+
+function toggleCurtain(deviceID, option) {
+    if (option.toString() === "true") {
+        document.getElementById("checkboxCurtain").checked = true
+    } else {
+        document.getElementById("checkboxCurtain").checked = false
+    }
+}
+
+function toggleFan(deviceID, option) {
+    document.getElementById("fanSpeed").innerText = option
+    document.getElementById("fanSlider").value = option
+}
+
+function changeDevice(deviceName, deviceType) {
+    if (deviceType === "lamp") {
+        let on;
+        if (deviceName === "Kitchen Lamp")
+            on = document.getElementById("checkBoxKitchenLamp").checked
+        if (deviceName === "Bathroom Lamp")
+            on = document.getElementById("checkboxBathroomLamp").checked
+        socket.send("changeDeviceStatus={'_id':'" + deviceName + "', 'on':'" + on + "'}");
+    }
+    if (deviceType === "curtain") {
+        let open = document.getElementById("checkboxCurtain").checked
+        socket.send("changeDeviceStatus={'_id':'" + deviceName + "', 'open':'" + open + "'}");
+    }
+    if (deviceType === "fan") {
+        let speed = document.getElementById("fanSlider").value
+        socket.send("changeDeviceStatus={'_id':'" + deviceName + "', 'speed':'" + speed + "'}");
+    }
+}
+
+</script>
+
+</body>
+</html>
